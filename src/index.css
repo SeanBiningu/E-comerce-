@@ -11,6 +11,7 @@
   a { @apply text-inherit no-underline transition-colors duration-200 hover:text-rust; }
   button { @apply cursor-pointer; }
   img { @apply block; }
+  main img { @apply rounded-[18px]; }
 }
 
 @layer components {
@@ -20,6 +21,6 @@
   .nav-link.active { @apply text-rust; }
   .brand-mark { @apply relative inline-flex items-start text-3xl font-extrabold leading-none tracking-[-.14em]; }
   .brand-mark small { @apply absolute -bottom-3 left-0 whitespace-nowrap font-mono text-[7px] font-normal tracking-[.08em]; }
-  .category-card { @apply relative overflow-hidden bg-ink; }
+  .category-card { @apply relative overflow-hidden rounded-[18px] bg-ink; }
   .category-card::after { content: ''; @apply absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent; }
 }
