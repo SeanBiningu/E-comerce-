@@ -12,6 +12,7 @@
   button { @apply cursor-pointer; }
   img { @apply block; }
   main img { @apply rounded-[18px]; }
+  main > section:first-child > img { @apply rounded-none; }
 }
 
 @layer components {
