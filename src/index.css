@@ -13,6 +13,7 @@
   img { @apply block; }
   main img { @apply rounded-[18px]; }
   main > section:first-child > img { @apply rounded-none; }
+  main { padding-top: 112px !important; }
 }
 
 @layer components {
@@ -24,4 +25,10 @@
   .brand-mark small { @apply absolute -bottom-3 left-0 whitespace-nowrap font-mono text-[7px] font-normal tracking-[.08em]; }
   .category-card { @apply relative overflow-hidden rounded-[18px] bg-ink; }
   .category-card::after { content: ''; @apply absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent; }
+  /* A compact, less dominant fixed navigation. */
+  header { @apply h-[76px] !important; }
+  header .brand-mark { @apply text-[27px]; }
+  header .brand-mark small { @apply -bottom-2 text-[6px]; }
+  header button { @apply h-8 w-8 text-base !important; }
+  header > div:last-child > a { @apply px-2.5 py-1.5 text-[10px]; }
 }
