@@ -351,7 +351,12 @@ function MainLayout({ children, isWomens }) {
 
 function Landing() {
   return (
-    <div className="flex h-screen w-full flex-col md:flex-row">
+    <div className="relative flex h-screen w-full flex-col md:flex-row">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col items-center bg-gradient-to-b from-black/65 to-transparent px-5 pb-16 pt-7 text-center text-paper md:pt-10">
+        <p className="font-mono text-[9px] uppercase tracking-[.22em] text-paper/80 sm:text-[10px]">Welcome to</p>
+        <h1 className="mt-2 text-2xl font-bold tracking-[-.06em] sm:text-3xl md:text-4xl">EXCLUSIVE FASHION WEAR</h1>
+        <p className="mt-2 font-mono text-[9px] uppercase tracking-[.13em] text-paper/80">Choose your collection</p>
+      </div>
       <Link to="/mens" className="group relative flex h-1/2 w-full flex-col items-center justify-center overflow-hidden bg-ink text-paper md:h-full md:w-1/2">
         <img className="absolute inset-0 h-full w-full object-cover opacity-50 transition duration-700 group-hover:scale-105 group-hover:opacity-70" src="https://images.unsplash.com/photo-1488161628813-04466f872be2?auto=format&fit=crop&w=900&q=80" alt="Menswear"/>
         <div className="relative z-10 flex flex-col items-center text-center">
