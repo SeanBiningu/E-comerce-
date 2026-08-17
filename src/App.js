@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Route, Routes, useNavigate } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 
@@ -63,12 +63,246 @@ function AdminLogin({onAdmin}) {
   return <section className="min-h-[570px] bg-tan px-[6vw] py-24"><div className="mx-auto max-w-md"><p className="font-mono text-[10px] uppercase tracking-[.13em]">Restricted access</p><h1 className="mt-3 font-bold tracking-[-.07em] text-6xl">OWNER<br/><em className="font-serif font-medium">LOGIN.</em></h1><form onSubmit={signIn} className="mt-10 space-y-4"><input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="EMAIL ADDRESS" required className="w-full border border-ink bg-transparent p-4 font-mono text-xs outline-none focus:border-rust"/><input value={password} onChange={e=>setPassword(e.target.value)} type="password" placeholder="PASSWORD" required className="w-full border border-ink bg-transparent p-4 font-mono text-xs outline-none focus:border-rust"/><button disabled={loading} className="w-full bg-ink p-4 font-mono text-[10px] tracking-[.1em] text-paper disabled:opacity-60">{loading ? 'SIGNING IN...' : 'SIGN IN →'}</button>{message && <p className="font-mono text-xs text-rust">{message}</p>}</form></div></section>
 }
 function AdminDashboard({onSignOut}) {
-  const [products, setProducts] = useState([]); const [message, setMessage] = useState(''); const [form, setForm] = useState({ name:'', slug:'', price:'', image_url:'', category_id:'' });
-  async function loadProducts() { const { data, error } = await supabase.from('products').select('id,name,slug,price,image_url,categories(name)').order('created_at', { ascending:false }); if(error) setMessage(error.message); else setProducts(data || []); }
-  useEffect(()=>{ loadProducts(); }, []);
-  async function addProduct(e) { e.preventDefault(); const { error } = await supabase.from('products').insert([{ ...form, price:Number(form.price), category_id: form.category_id || null }]); if(error) return setMessage(error.message); setForm({name:'',slug:'',price:'',image_url:'',category_id:''}); setMessage('Product added.'); loadProducts(); }
-  async function removeProduct(id) { if (!window.confirm('Remove this product?')) return; const { error } = await supabase.from('products').delete().eq('id',id); if(error) setMessage(error.message); else { setMessage('Product removed.'); loadProducts(); } }
-  return <section className="min-h-[650px] bg-paper px-[5.5vw] py-16"><div className="flex items-end justify-between border-b border-tan pb-8"><div><p className="font-mono text-[10px] uppercase tracking-[.13em] text-rust">Authenticated owner</p><h1 className="mt-2 text-5xl font-bold tracking-[-.07em]">ADMIN <em className="font-serif font-medium">DASHBOARD.</em></h1></div><button onClick={onSignOut} className="font-mono text-[10px] tracking-[.1em] underline">SIGN OUT</button></div><div className="mt-12 grid gap-12 lg:grid-cols-[.8fr_1.2fr]"><form onSubmit={addProduct} className="h-fit bg-tan p-7"><h2 className="text-2xl font-bold tracking-[-.05em]">ADD PRODUCT</h2><div className="mt-6 space-y-3">{[['name','Product name'],['slug','product-slug'],['price','Price e.g. 49.99'],['image_url','Image URL']].map(([key,label])=><input required={key !== 'image_url'} key={key} type={key==='price'?'number':'text'} step={key==='price'?'0.01':undefined} placeholder={label} value={form[key]} onChange={e=>setForm({...form,[key]:e.target.value})} className="w-full border border-ink/30 bg-paper p-3 font-mono text-xs outline-none focus:border-rust"/>)}<select value={form.category_id} onChange={e=>setForm({...form,category_id:e.target.value})} className="w-full border border-ink/30 bg-paper p-3 font-mono text-xs"><option value="">Category (optional)</option></select><button className="w-full bg-ink p-4 font-mono text-[10px] tracking-[.1em] text-paper">ADD TO STORE →</button></div></form><div><div className="mb-5 flex items-center justify-between"><h2 className="text-2xl font-bold tracking-[-.05em]">PRODUCTS</h2><span className="font-mono text-[10px] text-rust">{products.length} LIVE</span></div><div className="space-y-2">{products.map(product=><article key={product.id} className="flex items-center justify-between border border-tan p-3"><div className="flex items-center gap-4">{product.image_url && <img className="h-14 w-12 object-cover" src={product.image_url} alt=""/>}<div><h3 className="font-bold">{product.name}</h3><p className="font-mono text-[10px] text-ink/60">£{Number(product.price).toFixed(2)} · {product.slug}</p></div></div><button onClick={()=>removeProduct(product.id)} className="font-mono text-[10px] tracking-[.08em] text-rust">REMOVE</button></article>)}{!products.length && <p className="border border-dashed border-tan p-8 font-mono text-xs text-ink/60">No products yet. Add your first item.</p>}</div>{message && <p className="mt-4 font-mono text-xs text-rust">{message}</p>}</div></div></section>
+  const [products, setProducts]     = useState([]);
+  const [dbCategories, setDbCategories] = useState([]);
+  const [message, setMessage]       = useState('');
+  const [uploading, setUploading]   = useState(false);
+  const [dragOver, setDragOver]     = useState(false);
+  const [mediaFile, setMediaFile]   = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
+  const [mediaType, setMediaType]   = useState(''); // 'image' | 'video'
+  const [categoryMode, setCategoryMode] = useState('select'); // 'select' | 'custom'
+  const [customCategoryName, setCustomCategoryName] = useState('');
+  const [form, setForm] = useState({ name:'', slug:'', price:'', category_id:'' });
+  const fileInputRef = useRef(null);
+
+  async function loadProducts() {
+    const { data, error } = await supabase.from('products')
+      .select('id,name,slug,price,image_url,categories(name)')
+      .order('created_at', { ascending: false });
+    if (error) setMessage(error.message);
+    else setProducts(data || []);
+  }
+
+  async function loadCategories() {
+    const { data } = await supabase.from('categories').select('id,name').order('name');
+    setDbCategories(data || []);
+  }
+
+  useEffect(() => { loadProducts(); loadCategories(); }, []);
+
+  function slugify(str) {
+    return str.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  function handleFileSelect(file) {
+    if (!file) return;
+    const isVideo = file.type.startsWith('video/');
+    const isImage = file.type.startsWith('image/');
+    if (!isImage && !isVideo) return setMessage('Only images or videos (MP4/WebM) are accepted.');
+    if (mediaPreview) URL.revokeObjectURL(mediaPreview);
+    setMediaFile(file);
+    setMediaPreview(URL.createObjectURL(file));
+    setMediaType(isVideo ? 'video' : 'image');
+    setMessage('');
+  }
+
+  function handleDrop(e) {
+    e.preventDefault(); setDragOver(false);
+    handleFileSelect(e.dataTransfer.files[0]);
+  }
+
+  async function uploadMedia() {
+    if (!mediaFile) return null;
+    const ext = mediaFile.name.split('.').pop();
+    const path = `${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from('product-media').upload(path, mediaFile, { upsert: false });
+    if (error) { setMessage('Upload failed: ' + error.message); return null; }
+    const { data } = supabase.storage.from('product-media').getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function addProduct(e) {
+    e.preventDefault();
+    if (!mediaFile) return setMessage('Please select an image or video for the product.');
+    setUploading(true); setMessage('');
+    const imageUrl = await uploadMedia();
+    setUploading(false);
+    if (!imageUrl) return;
+
+    let finalCategoryId = form.category_id || null;
+    if (categoryMode === 'custom' && customCategoryName.trim()) {
+      const slug = slugify(customCategoryName);
+      const { data: existing } = await supabase.from('categories').select('id').eq('slug', slug).maybeSingle();
+      if (existing) {
+        finalCategoryId = existing.id;
+      } else {
+        const { data: newCat, error: catErr } = await supabase.from('categories')
+          .insert([{ slug, name: customCategoryName.trim() }]).select('id').single();
+        if (catErr) return setMessage('Category error: ' + catErr.message);
+        finalCategoryId = newCat.id;
+        await loadCategories();
+      }
+    }
+
+    const { error } = await supabase.from('products').insert([{
+      name: form.name, slug: form.slug,
+      price: Number(form.price),
+      image_url: imageUrl,
+      category_id: finalCategoryId,
+    }]);
+    if (error) return setMessage(error.message);
+    setForm({ name:'', slug:'', price:'', category_id:'' });
+    setMediaFile(null); setMediaPreview(null); setMediaType('');
+    setCategoryMode('select'); setCustomCategoryName('');
+    setMessage('✓ Product added successfully!');
+    loadProducts();
+  }
+
+  async function removeProduct(id) {
+    if (!window.confirm('Remove this product?')) return;
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) setMessage(error.message);
+    else { setMessage('Product removed.'); loadProducts(); }
+  }
+
+  return (
+    <section className="min-h-[650px] bg-paper px-[5.5vw] py-16">
+      {/* Header */}
+      <div className="flex items-end justify-between border-b border-tan pb-8">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[.13em] text-rust">Authenticated owner</p>
+          <h1 className="mt-2 text-5xl font-bold tracking-[-.07em]">ADMIN <em className="font-serif font-medium">DASHBOARD.</em></h1>
+        </div>
+        <button onClick={onSignOut} className="font-mono text-[10px] tracking-[.1em] underline">SIGN OUT</button>
+      </div>
+
+      <div className="mt-12 grid gap-12 lg:grid-cols-[.8fr_1.2fr]">
+        {/* ── ADD PRODUCT FORM ── */}
+        <form onSubmit={addProduct} className="h-fit bg-tan p-7">
+          <h2 className="text-2xl font-bold tracking-[-.05em]">ADD PRODUCT</h2>
+          <div className="mt-6 space-y-3">
+
+            {/* Text fields */}
+            {[['name','Product name'],['slug','product-slug'],['price','Price e.g. 49.99']].map(([key,label])=>(
+              <input required key={key}
+                type={key==='price'?'number':'text'}
+                step={key==='price'?'0.01':undefined}
+                placeholder={label}
+                value={form[key]}
+                onChange={e=>setForm({...form,[key]:e.target.value})}
+                className="w-full border border-ink/30 bg-paper p-3 font-mono text-xs outline-none focus:border-rust"/>
+            ))}
+
+            {/* ── MEDIA UPLOAD ZONE ── */}
+            <div>
+              <p className="mb-2 font-mono text-[10px] uppercase tracking-[.1em] text-ink/60">Product Photo or Short Video</p>
+              {/* Preview */}
+              {mediaPreview ? (
+                <div className="relative mb-3">
+                  {mediaType === 'video'
+                    ? <video src={mediaPreview} controls className="h-52 w-full rounded object-cover border border-ink/20" />
+                    : <img src={mediaPreview} alt="Preview" className="h-52 w-full object-cover border border-ink/20" />
+                  }
+                  <button type="button"
+                    onClick={()=>{URL.revokeObjectURL(mediaPreview);setMediaFile(null);setMediaPreview(null);setMediaType('');}}
+                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-ink/80 font-mono text-[10px] text-paper hover:bg-rust transition">✕</button>
+                </div>
+              ) : (
+                <label
+                  onDragOver={e=>{e.preventDefault();setDragOver(true);}}
+                  onDragLeave={()=>setDragOver(false)}
+                  onDrop={handleDrop}
+                  className={`flex cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed p-8 transition ${dragOver ? 'border-rust bg-rust/10' : 'border-ink/30 bg-paper hover:border-rust hover:bg-rust/5'}`}>
+                  <span className="text-4xl select-none">{dragOver ? '📂' : '📷'}</span>
+                  <span className="text-center font-mono text-[10px] tracking-[.08em] text-ink/70">
+                    Drag &amp; drop a photo or video here<br/>
+                    <span className="text-ink/40">or click to browse your files</span>
+                  </span>
+                  <span className="font-mono text-[9px] text-ink/40 uppercase tracking-widest">JPG · PNG · WebP · MP4 · WebM</span>
+                  <input ref={fileInputRef} type="file" accept="image/*,video/mp4,video/webm"
+                    onChange={e=>handleFileSelect(e.target.files[0])}
+                    className="sr-only" id="media-upload-input"/>
+                </label>
+              )}
+            </div>
+
+            {/* ── SMART CATEGORY PICKER ── */}
+            <div>
+              <p className="mb-2 font-mono text-[10px] uppercase tracking-[.1em] text-ink/60">Category</p>
+              <select
+                value={categoryMode === 'custom' ? '__custom__' : form.category_id}
+                onChange={e => {
+                  if (e.target.value === '__custom__') {
+                    setCategoryMode('custom');
+                  } else {
+                    setCategoryMode('select');
+                    setForm({...form, category_id: e.target.value});
+                  }
+                }}
+                className="w-full border border-ink/30 bg-paper p-3 font-mono text-xs outline-none focus:border-rust">
+                <option value="">— No category —</option>
+                {dbCategories.map(cat=>(
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+                <option value="__custom__">＋ Type a new category…</option>
+              </select>
+
+              {/* Write-in field when custom is chosen */}
+              {categoryMode === 'custom' && (
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="e.g. Summer Dresses"
+                  value={customCategoryName}
+                  onChange={e=>setCustomCategoryName(e.target.value)}
+                  className="mt-2 w-full border border-rust bg-paper p-3 font-mono text-xs outline-none focus:border-ink transition-all"
+                />
+              )}
+            </div>
+
+            <button disabled={uploading}
+              className="w-full bg-ink p-4 font-mono text-[10px] tracking-[.1em] text-paper disabled:opacity-60 transition hover:bg-rust">
+              {uploading ? 'UPLOADING MEDIA...' : 'ADD TO STORE →'}
+            </button>
+          </div>
+        </form>
+
+        {/* ── PRODUCTS LIST ── */}
+        <div>
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-2xl font-bold tracking-[-.05em]">PRODUCTS</h2>
+            <span className="font-mono text-[10px] text-rust">{products.length} LIVE</span>
+          </div>
+          {message && (
+            <p className={`mb-4 font-mono text-xs ${message.startsWith('✓') ? 'text-green-700' : 'text-rust'}`}>{message}</p>
+          )}
+          <div className="space-y-2">
+            {products.map(product=>(
+              <article key={product.id} className="flex items-center justify-between border border-tan p-3 transition hover:border-ink/30">
+                <div className="flex items-center gap-4">
+                  {product.image_url && (
+                    product.image_url.match(/\.(mp4|webm)$/i)
+                      ? <video src={product.image_url} muted className="h-14 w-12 object-cover rounded"/>
+                      : <img className="h-14 w-12 object-cover" src={product.image_url} alt=""/>
+                  )}
+                  <div>
+                    <h3 className="font-bold">{product.name}</h3>
+                    <p className="font-mono text-[10px] text-ink/60">
+                      £{Number(product.price).toFixed(2)} · {product.slug}
+                      {product.categories?.name && <span className="ml-2 text-rust">{product.categories.name}</span>}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={()=>removeProduct(product.id)} className="font-mono text-[10px] tracking-[.08em] text-rust hover:underline">REMOVE</button>
+              </article>
+            ))}
+            {!products.length && <p className="border border-dashed border-tan p-8 font-mono text-xs text-ink/60">No products yet. Add your first item.</p>}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 function Admin() { const [state, setState] = useState('loading'); async function checkAdmin(){ if (!supabase) return setState('login'); const { data:{session} } = await supabase.auth.getSession(); if(!session) return setState('login'); const { data } = await supabase.from('profiles').select('role').eq('id',session.user.id).maybeSingle(); setState(data?.role === 'admin' ? 'admin' : 'denied'); } useEffect(()=>{checkAdmin();},[]); if(state==='loading') return <section className="min-h-[500px] bg-paper p-20 font-mono text-xs">CHECKING ACCESS...</section>; if(state==='admin') return <AdminDashboard onSignOut={async()=>{await supabase.auth.signOut();setState('login')}}/>; if(state==='denied') return <section className="min-h-[500px] bg-paper p-20"><h1 className="text-5xl font-bold">ACCESS DENIED.</h1><p className="mt-5 max-w-md">This account is not an administrator. Ask the store owner to assign the admin role through Supabase.</p></section>; return <AdminLogin onAdmin={checkAdmin}/> }
 function MainLayout({ children, isWomens }) {

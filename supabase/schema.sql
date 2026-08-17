@@ -79,3 +79,22 @@ insert into public.categories (slug, name) values
 ('jeans','Jeans'), ('bottoms-shorts','Bottoms & Shorts'), ('tops','T-Shirts & Shirts'),
 ('formal-trousers','Formal Trousers'), ('hats','Caps & Bucket Hats'),
 ('tracksuits-jackets','Tracksuits & Jackets'), ('footwear','Slides & Sneakers');
+
+-- ─── Storage: product-media bucket ─────────────────────────────────────────
+-- Run this block in Supabase SQL Editor AFTER enabling Storage in the dashboard.
+
+insert into storage.buckets (id, name, public)
+  values ('product-media', 'product-media', true)
+  on conflict (id) do nothing;
+
+create policy "Public can view product media"
+  on storage.objects for select
+  using (bucket_id = 'product-media');
+
+create policy "Admins can upload product media"
+  on storage.objects for insert
+  with check (bucket_id = 'product-media' and public.is_admin());
+
+create policy "Admins can delete product media"
+  on storage.objects for delete
+  using (bucket_id = 'product-media' and public.is_admin());
