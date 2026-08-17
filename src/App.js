@@ -127,9 +127,79 @@ function AuthGate({ children }) {
   return <>{children}</>;
 }
 
+function Bag() {
+  return (
+    <section className="min-h-[620px] bg-paper px-[8vw] py-24 text-center">
+      <p className="font-mono text-[10px] uppercase tracking-[.13em] text-rust">Your Bag</p>
+      <h1 className="mt-5 text-5xl font-bold tracking-[-.07em]">HOW TO<br/><em className="font-serif font-medium">ORDER.</em></h1>
+      <p className="mx-auto mt-8 max-w-md text-sm leading-7">
+        We are currently accepting orders directly through our social channels and email. Take a screenshot or let us know which items you love!
+      </p>
+      <div className="mx-auto mt-12 flex max-w-sm flex-col gap-4">
+        <a href="https://wa.me/1234567890" target="_blank" rel="noreferrer" className="bg-[#25D366] p-4 font-mono text-[10px] font-bold tracking-[.1em] text-white transition hover:opacity-90">ORDER VIA WHATSAPP →</a>
+        <a href="mailto:orders@exclusivefashionwear.com" className="bg-ink p-4 font-mono text-[10px] tracking-[.1em] text-paper transition hover:opacity-90">ORDER VIA EMAIL →</a>
+        <a href="https://instagram.com" target="_blank" rel="noreferrer" className="bg-gradient-to-r from-[#833ab4] via-[#fd1d1d] to-[#fcb045] p-4 font-mono text-[10px] tracking-[.1em] text-white transition hover:opacity-90">ORDER VIA INSTAGRAM →</a>
+        <a href="https://facebook.com" target="_blank" rel="noreferrer" className="bg-[#1877F2] p-4 font-mono text-[10px] tracking-[.1em] text-white transition hover:opacity-90">ORDER VIA FACEBOOK →</a>
+      </div>
+    </section>
+  );
+}
+
+function TutorialOverlay() {
+  const [step, setStep] = useState(0);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (!localStorage.getItem('hasSeenTutorial')) {
+      setVisible(true);
+    }
+  }, []);
+
+  if (!visible) return null;
+
+  const steps = [
+    { title: "WELCOME", text: "Welcome to Exclusive Fashion Wear. To get started, select either the Men's or Women's exclusive section on the home page." },
+    { title: "BROWSE", text: "Explore our categories—from premium suits and dresses to the latest sneakers. Find the perfect look for your style." },
+    { title: "HOW TO ORDER", text: "We handle orders personally! When you find items you love, click the BAG icon to message us directly on WhatsApp, Instagram, or Facebook." }
+  ];
+
+  function next() {
+    if (step < steps.length - 1) {
+      setStep(step + 1);
+    } else {
+      localStorage.setItem('hasSeenTutorial', 'true');
+      setVisible(false);
+    }
+  }
+
+  function skip() {
+    localStorage.setItem('hasSeenTutorial', 'true');
+    setVisible(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/80 p-6 backdrop-blur-sm">
+      <div className="w-full max-w-md bg-paper p-8 shadow-2xl">
+        <div className="flex justify-between items-center mb-6">
+          <p className="font-mono text-[10px] uppercase tracking-[.13em] text-rust">Quick Guide ({step + 1}/{steps.length})</p>
+          <button onClick={skip} className="font-mono text-[10px] tracking-[.1em] text-ink/50 hover:text-ink">SKIP</button>
+        </div>
+        <h2 className="text-3xl font-bold tracking-[-.05em]">{steps[step].title}</h2>
+        <p className="mt-4 text-sm leading-6 text-ink/80">{steps[step].text}</p>
+        <div className="mt-8 flex justify-end">
+          <button onClick={next} className="bg-ink px-6 py-3 font-mono text-[10px] tracking-[.1em] text-paper transition hover:opacity-90">
+            {step === steps.length - 1 ? 'GET STARTED →' : 'NEXT →'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App(){
   return (
     <AuthGate>
+      <TutorialOverlay />
       <Routes>
         <Route path="/" element={<Landing/>}/>
         <Route path="/mens" element={<MainLayout><Home/></MainLayout>}/>
@@ -139,6 +209,7 @@ function App(){
         <Route path="/about" element={<MainLayout><About/></MainLayout>}/>
         <Route path="/account" element={<MainLayout><Account/></MainLayout>}/>
         <Route path="/admin" element={<MainLayout><Admin/></MainLayout>}/>
+        <Route path="/bag" element={<MainLayout><Bag/></MainLayout>}/>
         <Route path="*" element={<MainLayout><Home/></MainLayout>}/>
       </Routes>
     </AuthGate>
